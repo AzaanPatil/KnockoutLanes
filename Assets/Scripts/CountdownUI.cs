@@ -9,15 +9,15 @@ public class CountdownUI : MonoBehaviour
 
     private void OnEnable()
     {
-        RaceManager.Instance.OnCountdownTick += HandleCountdownTick;
-        RaceManager.Instance.OnRaceStart += HandleRaceStart;
+        RaceManager.Instance.OnCountdownTick.AddListener(HandleCountdownTick);
+        RaceManager.Instance.OnRaceStart.AddListener(HandleRaceStart);
     }
 
     private void OnDisable()
     {
         if (RaceManager.Instance == null) return;
-        RaceManager.Instance.OnCountdownTick -= HandleCountdownTick;
-        RaceManager.Instance.OnRaceStart -= HandleRaceStart;
+        RaceManager.Instance.OnCountdownTick.RemoveListener(HandleCountdownTick);
+        RaceManager.Instance.OnRaceStart.RemoveListener(HandleRaceStart);
     }
 
     private void HandleCountdownTick(int remaining)

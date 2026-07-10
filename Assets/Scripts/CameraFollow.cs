@@ -2,6 +2,10 @@ using UnityEngine;
 
 // Third-person chase camera (GDD 6.1). Runs in LateUpdate so it reacts
 // after the car has finished moving for the frame, avoiding jitter.
+//
+// Target can be set in the Inspector for a fixed scene, or reassigned at
+// runtime via SetTarget -- useful once cars are spawned from a prefab
+// rather than placed by hand.
 public class CameraFollow : MonoBehaviour
 {
     [SerializeField] private Transform target;
@@ -10,6 +14,8 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private float rotationSmoothSpeed = 6f;
 
     private Vector3 velocity;
+
+    public void SetTarget(Transform newTarget) => target = newTarget;
 
     private void LateUpdate()
     {

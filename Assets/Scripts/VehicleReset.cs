@@ -1,7 +1,11 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 // Recovers a stuck or flipped car by teleporting it back to the last
 // checkpoint it passed (GDD 7.1: "vehicle will reset if stuck").
+//
+// OnReset fires right as the teleport happens -- wire it to a screen
+// flash, a sound, or a particle burst from the Inspector.
 [RequireComponent(typeof(Rigidbody))]
 public class VehicleReset : MonoBehaviour
 {
@@ -9,6 +13,8 @@ public class VehicleReset : MonoBehaviour
     [SerializeField] private float stuckTimeToReset = 3f;
     [SerializeField] private float flippedDotThreshold = 0.3f;
     [SerializeField] private float flippedTimeToReset = 1.5f;
+
+    public UnityEvent OnReset = new UnityEvent();
 
     private Rigidbody rb;
     private float stuckTimer;
@@ -51,5 +57,6 @@ public class VehicleReset : MonoBehaviour
 
         flippedTimer = 0f;
         stuckTimer = 0f;
+        OnReset.Invoke();
     }
 }

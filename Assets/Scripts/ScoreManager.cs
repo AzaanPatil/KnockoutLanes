@@ -1,10 +1,12 @@
-using System;
 using UnityEngine;
 
 // Tracks score and the style multiplier called for in the GDD (2.1: bonus
 // points for speed and style; 6.1 HUD: score + style multiplier).
 // Consecutive pin hits within ComboWindowSeconds keep the multiplier
 // climbing; letting it lapse resets to the base multiplier.
+//
+// This script doesn't know where hits come from -- wire BowlingPin.OnKnockedDown
+// (or any other UnityEvent<float>) to RegisterPinHit in the Inspector.
 public class ScoreManager : Singleton<ScoreManager>
 {
     [Header("Scoring")]
@@ -17,12 +19,13 @@ public class ScoreManager : Singleton<ScoreManager>
     [SerializeField] private float multiplierStep = 0.5f;
     [SerializeField] private float maxMultiplier = 4f;
 
+    [Header("Events")]
+    public IntEvent OnScoreChanged = new IntEvent();
+    public FloatEvent OnStyleMultiplierChanged = new FloatEvent();
+
     public int Score { get; private set; }
     public float StyleMultiplier { get; private set; } = 1f;
     public int PinsKnocked { get; private set; }
-
-    public event Action<int> OnScoreChanged;
-    public event Action<float> OnStyleMultiplierChanged;
 
     private float lastHitTime = float.NegativeInfinity;
 
@@ -43,7 +46,7 @@ public class ScoreManager : Singleton<ScoreManager>
         Score += points;
         PinsKnocked++;
 
-        OnStyleMultiplierChanged?.Invoke(StyleMultiplier);
-        OnScoreChanged?.Invoke(Score);
+        OnStyleMultiplierChanged.Invoke(StyleMultiplier);
+        OnScoreChanged.Invoke(Score);
     }
 }

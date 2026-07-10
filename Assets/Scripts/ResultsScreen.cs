@@ -17,14 +17,14 @@ public class ResultsScreen : MonoBehaviour
 
     private void OnEnable()
     {
-        RaceManager.Instance.OnRaceFinished += HandleRaceFinished;
+        RaceManager.Instance.OnRaceFinished.AddListener(HandleRaceFinished);
     }
 
     private void OnDisable()
     {
         if (RaceManager.Instance != null)
         {
-            RaceManager.Instance.OnRaceFinished -= HandleRaceFinished;
+            RaceManager.Instance.OnRaceFinished.RemoveListener(HandleRaceFinished);
         }
     }
 

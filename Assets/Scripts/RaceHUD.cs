@@ -12,9 +12,9 @@ public class RaceHUD : MonoBehaviour
 
     private void OnEnable()
     {
-        ScoreManager.Instance.OnScoreChanged += HandleScoreChanged;
-        ScoreManager.Instance.OnStyleMultiplierChanged += HandleStyleMultiplierChanged;
-        RaceManager.Instance.OnCheckpointPassed += HandleCheckpointPassed;
+        ScoreManager.Instance.OnScoreChanged.AddListener(HandleScoreChanged);
+        ScoreManager.Instance.OnStyleMultiplierChanged.AddListener(HandleStyleMultiplierChanged);
+        RaceManager.Instance.OnCheckpointPassed.AddListener(HandleCheckpointPassed);
 
         HandleScoreChanged(ScoreManager.Instance.Score);
         HandleStyleMultiplierChanged(ScoreManager.Instance.StyleMultiplier);
@@ -25,12 +25,12 @@ public class RaceHUD : MonoBehaviour
     {
         if (ScoreManager.Instance != null)
         {
-            ScoreManager.Instance.OnScoreChanged -= HandleScoreChanged;
-            ScoreManager.Instance.OnStyleMultiplierChanged -= HandleStyleMultiplierChanged;
+            ScoreManager.Instance.OnScoreChanged.RemoveListener(HandleScoreChanged);
+            ScoreManager.Instance.OnStyleMultiplierChanged.RemoveListener(HandleStyleMultiplierChanged);
         }
         if (RaceManager.Instance != null)
         {
-            RaceManager.Instance.OnCheckpointPassed -= HandleCheckpointPassed;
+            RaceManager.Instance.OnCheckpointPassed.RemoveListener(HandleCheckpointPassed);
         }
     }
 
