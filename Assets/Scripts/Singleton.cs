@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Shared by RaceManager and ScoreManager, both of which are one-per-scene
 // managers that other scripts look up by Instance.
-public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
+public abstract class Singleton<T> : MonoBehaviour where T : Singleton<T>
 {
     public static T Instance { get; private set; }
 
