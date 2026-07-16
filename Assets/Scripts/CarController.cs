@@ -34,10 +34,21 @@ public class CarController : MonoBehaviour
     [Header("Stability")]
     [Tooltip("Lowers the Rigidbody's center of mass relative to its default, which helps stop the car from tipping over during hard turns or pin collisions.")]
     [SerializeField] private Vector3 centerOfMassOffset = new Vector3(0f, -0.5f, 0f);
- 
+
+    [Header("Drift Detection")]
+    [Tooltip("Minimum speed before the handbrake counts as an actual drift rather than just sitting still holding it.")]
+    [SerializeField] private float driftMinSpeed = 3f;
+    [Tooltip("Minimum angle between the car's facing and its actual velocity to count as a genuine sideways slide.")]
+    [SerializeField] private float driftSlipAngleThreshold = 15f;
+
     // Gated off by RaceManager during the pre-race countdown so the car
     // can't jump the start.
     public bool CanDrive { get; set; } = true;
+
+    // True only while the handbrake is held AND the car is genuinely
+    // sliding sideways (not just sitting still or braking in a straight
+    // line). Read by DriftStyleTracker to build the style multiplier.
+    public bool IsDrifting { get; private set; }
 
     private Rigidbody rb;
     private float verticalInput;
@@ -80,6 +91,7 @@ public class CarController : MonoBehaviour
         HandleMotor();
         HandleSteering();
         HandleHandbrake();
+        UpdateDriftState();
     }
 
     private void HoldForCountdown()
@@ -153,6 +165,27 @@ public class CarController : MonoBehaviour
         wheelColliderRR.sidewaysFriction = rearFriction;
     }
  
+    private void UpdateDriftState()
+    {
+        if (!handbrakeInput)
+        {
+            IsDrifting = false;
+            return;
+        }
+
+        Vector3 horizontalVelocity = rb.linearVelocity;
+        horizontalVelocity.y = 0f;
+
+        if (horizontalVelocity.magnitude < driftMinSpeed)
+        {
+            IsDrifting = false;
+            return;
+        }
+
+        float slipAngle = Vector3.Angle(transform.forward, horizontalVelocity);
+        IsDrifting = slipAngle > driftSlipAngleThreshold;
+    }
+
     private void UpdateWheelVisual(WheelCollider collider, Transform wheelMesh)
     {
         if (wheelMesh == null) return;

@@ -24,12 +24,16 @@ public class RaceManager : Singleton<RaceManager>
     [SerializeField] private CarController playerCar;
 
     [Header("Countdown")]
+    [Tooltip("How long to show a \"Ready\" cue before the numeric countdown starts.")]
+    [SerializeField] private float readyDisplaySeconds = 2f;
     [SerializeField] private int countdownSeconds = 3;
 
     [Header("Track Geometry")]
     [SerializeField] private float trackWidth = 14f;
     [SerializeField] private float barrierHeight = 1.5f;
     [SerializeField] private float barrierThickness = 0.5f;
+    [Tooltip("How many road segments to generate between each pair of checkpoints. Higher = smoother curve, more GameObjects.")]
+    [SerializeField] private int trackSmoothness = 8;
     [SerializeField] private Material roadMaterial;
     [SerializeField] private Material barrierMaterial;
 
@@ -37,12 +41,18 @@ public class RaceManager : Singleton<RaceManager>
     [SerializeField] private GameObject pinPrefabForCorners;
     [Tooltip("A checkpoint counts as a \"corner\" once the road bends by at least this many degrees.")]
     [SerializeField] private float cornerAngleThreshold = 20f;
-    [SerializeField] private int cornerPinRows = 3;
+    [Tooltip("Rows for the big corner clusters -- Forza-style, this is the dramatic one.")]
+    [SerializeField] private int cornerPinRows = 6;
     [SerializeField] private float cornerPinSpacing = 0.6f;
     [Tooltip("How far back along the approach (before the corner) to place the cluster, so it's not sitting exactly on the checkpoint gate.")]
     [SerializeField] private float cornerApproachOffset = 4f;
+    [Tooltip("Rows for the smaller clusters placed on straight sections. Set to 0 to skip straights entirely.")]
+    [SerializeField] private int straightPinRows = 2;
+    [SerializeField] private float straightPinSpacing = 0.6f;
 
     [Header("Events")]
+    [Tooltip("Fires once, before the numeric countdown begins, to show a \"Ready\" cue.")]
+    public UnityEvent OnCountdownReady = new UnityEvent();
     [Tooltip("Fires once per second while counting down. 0 means \"GO\".")]
     public IntEvent OnCountdownTick = new IntEvent();
     [Tooltip("Fires once the countdown ends and driving is allowed.")]
@@ -81,6 +91,9 @@ public class RaceManager : Singleton<RaceManager>
 
     private IEnumerator RunCountdown()
     {
+        OnCountdownReady.Invoke();
+        yield return new WaitForSeconds(readyDisplaySeconds);
+
         for (int remaining = countdownSeconds; remaining > 0; remaining--)
         {
             OnCountdownTick.Invoke(remaining);
@@ -193,9 +206,9 @@ public class RaceManager : Singleton<RaceManager>
     [ContextMenu("Build Track Geometry")]
     private void BuildTrackGeometry()
     {
-        if (checkpoints.Count < 2)
+        if (checkpoints.Count < 3)
         {
-            Debug.LogWarning("RaceManager: need at least 2 checkpoints to build track geometry.");
+            Debug.LogWarning("RaceManager: need at least 3 checkpoints to build a smoothed track (the curve needs neighbors on both sides of each point).");
             return;
         }
 
@@ -205,7 +218,7 @@ public class RaceManager : Singleton<RaceManager>
             waypoints.Add(checkpoint != null ? checkpoint.transform : null);
         }
 
-        TrackGeometryGenerator.Generate(transform, waypoints, trackWidth, barrierHeight, barrierThickness, roadMaterial, barrierMaterial);
+        TrackGeometryGenerator.Generate(transform, waypoints, trackWidth, barrierHeight, barrierThickness, trackSmoothness, roadMaterial, barrierMaterial);
     }
 
     [ContextMenu("Clear Track Geometry")]
@@ -214,14 +227,14 @@ public class RaceManager : Singleton<RaceManager>
         TrackGeometryGenerator.Clear(transform);
     }
 
-    // Places a pin cluster approaching every detected corner along the
-    // track -- a checkpoint counts as a corner when the road direction
-    // changes sharply between the segment leading into it and the segment
-    // leading out. Placement sits on the track's centerline (safely within
-    // Track Width for any normal cluster size) a bit before the checkpoint,
-    // facing into the turn. Re-run any time the layout changes.
-    [ContextMenu("Auto-Place Pin Clusters At Corners")]
-    private void AutoPlacePinClustersAtCorners()
+    // Places a big pin cluster approaching every detected corner, plus a
+    // smaller one at every straight checkpoint -- Forza-style: the dramatic
+    // knockdowns happen in corners, with lighter pins scattered on the
+    // straights for variety. A checkpoint counts as a corner when the road
+    // direction changes sharply between the segment leading into it and the
+    // segment leading out. Re-run any time the layout changes.
+    [ContextMenu("Auto-Place Pin Clusters")]
+    private void AutoPlacePinClusters()
     {
         if (pinPrefabForCorners == null)
         {
@@ -246,6 +259,7 @@ public class RaceManager : Singleton<RaceManager>
         Undo.RegisterCreatedObjectUndo(clusterRoot, "Auto-Place Pin Clusters");
 
         int cornerCount = 0;
+        int straightCount = 0;
         for (int i = 0; i < checkpoints.Count; i++)
         {
             Checkpoint prev = checkpoints[(i - 1 + checkpoints.Count) % checkpoints.Count];
@@ -260,23 +274,75 @@ public class RaceManager : Singleton<RaceManager>
             if (incoming.sqrMagnitude < 0.0001f || outgoing.sqrMagnitude < 0.0001f) continue;
 
             float turnAngle = Vector3.Angle(incoming.normalized, outgoing.normalized);
-            if (turnAngle < cornerAngleThreshold) continue; // straight enough, not a corner
+            bool isCorner = turnAngle >= cornerAngleThreshold;
 
-            Vector3 placement = current.transform.position - incoming.normalized * cornerApproachOffset;
-
-            GameObject anchor = new GameObject($"CornerPins_{i}");
-            anchor.transform.SetParent(clusterRoot.transform);
-            anchor.transform.SetPositionAndRotation(placement, Quaternion.LookRotation(incoming.normalized, Vector3.up));
-            Undo.RegisterCreatedObjectUndo(anchor, "Auto-Place Pin Clusters");
-
-            PinFormationSpawner spawner = anchor.AddComponent<PinFormationSpawner>();
-            spawner.Configure(pinPrefabForCorners, cornerPinRows, cornerPinSpacing);
-            spawner.SpawnFormation();
-
-            cornerCount++;
+            if (isCorner)
+            {
+                Vector3 placement = current.transform.position - incoming.normalized * cornerApproachOffset;
+                PlaceCluster(clusterRoot.transform, placement, incoming.normalized, cornerPinRows, cornerPinSpacing, $"CornerPins_{i}");
+                cornerCount++;
+            }
+            else if (straightPinRows > 0)
+            {
+                PlaceCluster(clusterRoot.transform, current.transform.position, incoming.normalized, straightPinRows, straightPinSpacing, $"StraightPins_{i}");
+                straightCount++;
+            }
         }
 
-        Debug.Log($"RaceManager: placed pin clusters at {cornerCount} detected corner(s).");
+        Debug.Log($"RaceManager: placed {cornerCount} corner cluster(s) and {straightCount} straight cluster(s).");
+    }
+
+    private void PlaceCluster(Transform parent, Vector3 position, Vector3 facingDirection, int rows, float spacing, string name)
+    {
+        GameObject anchor = new GameObject(name);
+        anchor.transform.SetParent(parent);
+        anchor.transform.SetPositionAndRotation(position, Quaternion.LookRotation(facingDirection, Vector3.up));
+        Undo.RegisterCreatedObjectUndo(anchor, "Auto-Place Pin Clusters");
+
+        PinFormationSpawner spawner = anchor.AddComponent<PinFormationSpawner>();
+        spawner.Configure(pinPrefabForCorners, rows, spacing);
+        spawner.SpawnFormation();
+    }
+
+    // Finds every PinFormationSpawner in the scene (whether placed by hand,
+    // by Auto-Place Pin Clusters At Corners, or anywhere else) and snaps
+    // each one onto the nearest point of the same smoothed curve the road
+    // is built from -- fixes clusters that ended up outside the track
+    // margins after the layout changed. Re-spawns each one afterward so the
+    // actual pins move too, not just the anchor.
+    [ContextMenu("Snap Pin Clusters To Track")]
+    private void SnapPinClustersToTrack()
+    {
+        if (checkpoints.Count < 3)
+        {
+            Debug.LogWarning("RaceManager: need at least 3 checkpoints to compute the track path.");
+            return;
+        }
+
+        var waypoints = new List<Transform>(checkpoints.Count);
+        foreach (Checkpoint checkpoint in checkpoints)
+        {
+            waypoints.Add(checkpoint != null ? checkpoint.transform : null);
+        }
+
+        List<Vector3> path = TrackGeometryGenerator.BuildSmoothPath(waypoints, trackSmoothness);
+        if (path.Count < 2)
+        {
+            Debug.LogWarning("RaceManager: couldn't build a track path to snap to.");
+            return;
+        }
+
+        PinFormationSpawner[] spawners = FindObjectsByType<PinFormationSpawner>(FindObjectsSortMode.None);
+        foreach (PinFormationSpawner spawner in spawners)
+        {
+            TrackGeometryGenerator.GetClosestPointOnPath(path, spawner.transform.position, out Vector3 closest, out Vector3 forward);
+
+            Undo.RecordObject(spawner.transform, "Snap Pin Cluster To Track");
+            spawner.transform.SetPositionAndRotation(closest, Quaternion.LookRotation(forward, Vector3.up));
+            spawner.SpawnFormation();
+        }
+
+        Debug.Log($"RaceManager: snapped {spawners.Length} pin cluster(s) onto the track.");
     }
 #endif
 }

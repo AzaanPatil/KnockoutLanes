@@ -56,6 +56,22 @@ public class ScoreManager : Singleton<ScoreManager>
         OnStyleMultiplierChanged.Invoke(StyleMultiplier);
     }
 
+    // Builds the multiplier from something other than a pin hit -- e.g.
+    // DriftStyleTracker calling this every frame while the car is
+    // genuinely drifting. Shares the same combo clock as pin hits, so
+    // drifting also keeps the passive decay above from kicking in.
+    public void AddStyle(float amount)
+    {
+        if (amount <= 0f) return;
+
+        lastHitTime = Time.time;
+        float boosted = Mathf.Min(StyleMultiplier + amount, maxMultiplier);
+        if (Mathf.Approximately(boosted, StyleMultiplier)) return;
+
+        StyleMultiplier = boosted;
+        OnStyleMultiplierChanged.Invoke(StyleMultiplier);
+    }
+
     public void RegisterPinHit(float carSpeed)
     {
         bool withinCombo = Time.time - lastHitTime <= comboWindowSeconds;

@@ -9,6 +9,7 @@ public class CountdownUI : MonoBehaviour
 
     private void Start()
     {
+        RaceManager.Instance.OnCountdownReady.AddListener(HandleCountdownReady);
         RaceManager.Instance.OnCountdownTick.AddListener(HandleCountdownTick);
         RaceManager.Instance.OnRaceStart.AddListener(HandleRaceStart);
     }
@@ -16,8 +17,15 @@ public class CountdownUI : MonoBehaviour
     private void OnDisable()
     {
         if (RaceManager.Instance == null) return;
+        RaceManager.Instance.OnCountdownReady.RemoveListener(HandleCountdownReady);
         RaceManager.Instance.OnCountdownTick.RemoveListener(HandleCountdownTick);
         RaceManager.Instance.OnRaceStart.RemoveListener(HandleRaceStart);
+    }
+
+    private void HandleCountdownReady()
+    {
+        countdownPanel.SetActive(true);
+        countdownText.text = "READY...";
     }
 
     private void HandleCountdownTick(int remaining)

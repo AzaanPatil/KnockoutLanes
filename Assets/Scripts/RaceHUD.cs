@@ -10,6 +10,13 @@ public class RaceHUD : MonoBehaviour
     [SerializeField] private TMP_Text styleMultiplierText;
     [SerializeField] private TMP_Text checkpointText;
 
+    [Header("Speedometer")]
+    [SerializeField] private TMP_Text speedText;
+    [SerializeField] private Rigidbody carRigidbody;
+    [Tooltip("Multiplier from Unity units/second to the displayed speed unit (2.237 = MPH, 3.6 = km/h).")]
+    [SerializeField] private float speedUnitMultiplier = 2.237f;
+    [SerializeField] private string speedUnitLabel = "MPH";
+
     private void Start()
     {
         // Hidden during the countdown, shown once the race actually starts,
@@ -66,12 +73,19 @@ public class RaceHUD : MonoBehaviour
         scoreText.gameObject.SetActive(visible);
         styleMultiplierText.gameObject.SetActive(visible);
         checkpointText.gameObject.SetActive(visible);
+        if (speedText != null) speedText.gameObject.SetActive(visible);
     }
 
     private void Update()
     {
         if (timerText == null || RaceManager.Instance == null) return;
         timerText.text = FormatTime(RaceManager.Instance.ElapsedTime);
+
+        if (speedText != null && carRigidbody != null)
+        {
+            float displaySpeed = carRigidbody.linearVelocity.magnitude * speedUnitMultiplier;
+            speedText.text = $"{Mathf.RoundToInt(displaySpeed)} {speedUnitLabel}";
+        }
     }
 
     private void HandleScoreChanged(int score) => scoreText.text = $"Score: {score}";
