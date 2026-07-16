@@ -39,7 +39,10 @@ public class Checkpoint : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag("Player")) return;
+        // Check the attached Rigidbody's tag, not the individual collider's --
+        // the car's actual colliders live on child objects (Body, wheels)
+        // which aren't themselves tagged, only the root Car object is.
+        if (other.attachedRigidbody == null || !other.attachedRigidbody.CompareTag("Player")) return;
 
         if (RaceManager.Instance.RegisterCheckpointPassed(this))
         {

@@ -16,8 +16,17 @@ public class PinFormationSpawner : MonoBehaviour
     [SerializeField] private float spacing = 0.6f;
 
 #if UNITY_EDITOR
+    // Lets other editor tooling (e.g. RaceManager's corner-detection
+    // auto-placement) configure a spawner it just created programmatically.
+    public void Configure(GameObject prefab, int rowCount, float spacingValue)
+    {
+        pinPrefab = prefab;
+        rows = rowCount;
+        spacing = spacingValue;
+    }
+
     [ContextMenu("Spawn Formation")]
-    private void SpawnFormation()
+    public void SpawnFormation()
     {
         if (pinPrefab == null)
         {

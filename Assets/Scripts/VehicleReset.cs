@@ -51,9 +51,12 @@ public class VehicleReset : MonoBehaviour
         Transform checkpoint = RaceManager.Instance.GetLastPassedCheckpoint();
         if (checkpoint == null) return;
 
+        int lastPassedIndex = RaceManager.Instance.NextCheckpointIndex - 1;
+        Quaternion facing = RaceManager.Instance.GetCheckpointFacingRotation(lastPassedIndex);
+
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
-        transform.SetPositionAndRotation(checkpoint.position, checkpoint.rotation);
+        transform.SetPositionAndRotation(checkpoint.position, facing);
 
         flippedTimer = 0f;
         stuckTimer = 0f;

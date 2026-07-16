@@ -10,15 +10,35 @@ public class RaceHUD : MonoBehaviour
     [SerializeField] private TMP_Text styleMultiplierText;
     [SerializeField] private TMP_Text checkpointText;
 
-    private void OnEnable()
+    private void Start()
     {
-        ScoreManager.Instance.OnScoreChanged.AddListener(HandleScoreChanged);
-        ScoreManager.Instance.OnStyleMultiplierChanged.AddListener(HandleStyleMultiplierChanged);
-        RaceManager.Instance.OnCheckpointPassed.AddListener(HandleCheckpointPassed);
+        // Hidden during the countdown, shown once the race actually starts,
+        // hidden again once it finishes.
+        SetHUDVisible(false);
 
-        HandleScoreChanged(ScoreManager.Instance.Score);
-        HandleStyleMultiplierChanged(ScoreManager.Instance.StyleMultiplier);
-        HandleCheckpointPassed(RaceManager.Instance.NextCheckpointIndex, RaceManager.Instance.TotalCheckpoints);
+        if (ScoreManager.Instance != null)
+        {
+            ScoreManager.Instance.OnScoreChanged.AddListener(HandleScoreChanged);
+            ScoreManager.Instance.OnStyleMultiplierChanged.AddListener(HandleStyleMultiplierChanged);
+            HandleScoreChanged(ScoreManager.Instance.Score);
+            HandleStyleMultiplierChanged(ScoreManager.Instance.StyleMultiplier);
+        }
+        else
+        {
+            Debug.LogWarning("RaceHUD: no ScoreManager in the scene (or it's disabled) -- score/style multiplier won't update.");
+        }
+
+        if (RaceManager.Instance != null)
+        {
+            RaceManager.Instance.OnCheckpointPassed.AddListener(HandleCheckpointPassed);
+            RaceManager.Instance.OnRaceStart.AddListener(HandleRaceStart);
+            RaceManager.Instance.OnRaceFinished.AddListener(HandleRaceFinished);
+            HandleCheckpointPassed(RaceManager.Instance.NextCheckpointIndex, RaceManager.Instance.TotalCheckpoints);
+        }
+        else
+        {
+            Debug.LogWarning("RaceHUD: no RaceManager in the scene (or it's disabled) -- checkpoint progress won't update.");
+        }
     }
 
     private void OnDisable()
@@ -31,7 +51,21 @@ public class RaceHUD : MonoBehaviour
         if (RaceManager.Instance != null)
         {
             RaceManager.Instance.OnCheckpointPassed.RemoveListener(HandleCheckpointPassed);
+            RaceManager.Instance.OnRaceStart.RemoveListener(HandleRaceStart);
+            RaceManager.Instance.OnRaceFinished.RemoveListener(HandleRaceFinished);
         }
+    }
+
+    private void HandleRaceStart() => SetHUDVisible(true);
+
+    private void HandleRaceFinished(float finalTime) => SetHUDVisible(false);
+
+    private void SetHUDVisible(bool visible)
+    {
+        timerText.gameObject.SetActive(visible);
+        scoreText.gameObject.SetActive(visible);
+        styleMultiplierText.gameObject.SetActive(visible);
+        checkpointText.gameObject.SetActive(visible);
     }
 
     private void Update()

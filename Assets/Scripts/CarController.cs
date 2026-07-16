@@ -84,12 +84,16 @@ public class CarController : MonoBehaviour
 
     private void HoldForCountdown()
     {
-        // Just cut drive power -- the car isn't moving yet anyway, so a hard
-        // four-wheel brake lock is unnecessary and, worse, fights the
-        // suspension while it's still settling onto the ground right after
-        // spawn, which can destabilize the physics solver.
-        wheelColliderRL.motorTorque = 0f;
-        wheelColliderRR.motorTorque = 0f;
+        // Let the driven rear wheels spin freely under throttle for a
+        // burnout, but lock the front wheels with a hard brake so the car
+        // doesn't actually creep forward before the race starts. Only the
+        // front pair is braked (not all four) so this doesn't reintroduce
+        // the four-wheel brake lock that used to fight the suspension while
+        // it was still settling right after spawn.
+        wheelColliderRL.motorTorque = verticalInput * maxMotorTorque;
+        wheelColliderRR.motorTorque = verticalInput * maxMotorTorque;
+        wheelColliderFL.brakeTorque = handbrakeBrakeTorque;
+        wheelColliderFR.brakeTorque = handbrakeBrakeTorque;
     }
  
     private void HandleMotor()
@@ -101,6 +105,12 @@ public class CarController : MonoBehaviour
         // front pair for all-wheel drive.
         wheelColliderRL.motorTorque = motorTorque;
         wheelColliderRR.motorTorque = motorTorque;
+
+        // Release the front brakes here in case HoldForCountdown() locked
+        // them for a countdown burnout -- otherwise they'd stay locked
+        // forever once normal driving resumes.
+        wheelColliderFL.brakeTorque = 0f;
+        wheelColliderFR.brakeTorque = 0f;
 
         // Coast down instead of holding speed indefinitely when the throttle
         // is released. HandleHandbrake() overrides this with a much stronger

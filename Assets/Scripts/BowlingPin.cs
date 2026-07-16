@@ -1,20 +1,21 @@
 using UnityEngine;
 
-// A standing pin that fires OnKnockedDown once physics has tipped it past
-// TipAngleThreshold. Uses Rigidbody physics per the GDD (3.2.1) rather
-// than a scripted knockdown animation.
+// A standing pin that scores itself via ScoreManager.Instance once physics
+// has tipped it past TipAngleThreshold. Uses Rigidbody physics per the GDD
+// (3.2.1) rather than a scripted knockdown animation.
 //
-// This pin has no idea scoring exists -- in the Inspector, wire
-// OnKnockedDown to ScoreManager.RegisterPinHit (do it once on the pin
-// prefab and every instance inherits it). You can also add extra
-// listeners for VFX/SFX, or swap in different scoring for special pins.
+// Scoring is called directly in code (not just via OnKnockedDown) because
+// prefab assets can't hold a serialized reference to a scene object like
+// ScoreManager -- there'd be nothing to wire in the Inspector at the prefab
+// level. OnKnockedDown is still exposed for genuinely optional extras (a
+// specific pin's VFX/SFX) that you want to wire per-instance.
 [RequireComponent(typeof(Rigidbody))]
 public class BowlingPin : MonoBehaviour
 {
     [SerializeField] private float tipAngleThreshold = 60f;
 
     [Header("Events")]
-    [Tooltip("Fires with the impact speed that knocked the pin over.")]
+    [Tooltip("Optional -- fires with the impact speed that knocked the pin over. Scoring happens automatically and doesn't depend on this being wired.")]
     public FloatEvent OnKnockedDown = new FloatEvent();
 
     private bool knockedDown;
@@ -33,6 +34,12 @@ public class BowlingPin : MonoBehaviour
         if (tipAngle < tipAngleThreshold) return;
 
         knockedDown = true;
+
+        if (ScoreManager.Instance != null)
+        {
+            ScoreManager.Instance.RegisterPinHit(lastImpactSpeed);
+        }
+
         OnKnockedDown.Invoke(lastImpactSpeed);
     }
 }

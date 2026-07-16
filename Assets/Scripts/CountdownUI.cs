@@ -7,7 +7,7 @@ public class CountdownUI : MonoBehaviour
     [SerializeField] private TMP_Text countdownText;
     [SerializeField] private float goDisplaySeconds = 1f;
 
-    private void OnEnable()
+    private void Start()
     {
         RaceManager.Instance.OnCountdownTick.AddListener(HandleCountdownTick);
         RaceManager.Instance.OnRaceStart.AddListener(HandleRaceStart);
