@@ -18,6 +18,8 @@ public class Checkpoint : MonoBehaviour
     [SerializeField] private float beamHeight = 25f;
     [SerializeField] private float beamThickness = 0.3f;
 
+    [SerializeField] private AudioClip passedSfx;
+
     private void Reset()
     {
         GetComponent<Collider>().isTrigger = true;
@@ -46,6 +48,11 @@ public class Checkpoint : MonoBehaviour
 
         if (RaceManager.Instance.RegisterCheckpointPassed(this))
         {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySFX(passedSfx);
+            }
+
             OnCheckpointReached.Invoke();
         }
     }

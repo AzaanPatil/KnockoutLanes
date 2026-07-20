@@ -13,6 +13,7 @@ using UnityEngine;
 public class BowlingPin : MonoBehaviour
 {
     [SerializeField] private float tipAngleThreshold = 60f;
+    [SerializeField] private AudioClip knockdownSfx;
 
     [Header("Events")]
     [Tooltip("Optional -- fires with the impact speed that knocked the pin over. Scoring happens automatically and doesn't depend on this being wired.")]
@@ -38,6 +39,11 @@ public class BowlingPin : MonoBehaviour
         if (ScoreManager.Instance != null)
         {
             ScoreManager.Instance.RegisterPinHit(lastImpactSpeed);
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(knockdownSfx);
         }
 
         OnKnockedDown.Invoke(lastImpactSpeed);

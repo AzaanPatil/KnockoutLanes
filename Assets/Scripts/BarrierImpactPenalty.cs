@@ -5,6 +5,8 @@ using UnityEngine;
 // gets wiped instantly rather than left to decay away naturally.
 public class BarrierImpactPenalty : MonoBehaviour
 {
+    [SerializeField] private AudioClip crashSfx;
+
     private void OnCollisionEnter(Collision collision)
     {
         if (!collision.gameObject.CompareTag("Barrier")) return;
@@ -12,6 +14,11 @@ public class BarrierImpactPenalty : MonoBehaviour
         if (ScoreManager.Instance != null)
         {
             ScoreManager.Instance.ResetStyleMultiplier();
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(crashSfx);
         }
     }
 }

@@ -18,6 +18,9 @@ public class FinishLine : MonoBehaviour
     [SerializeField] private float beamHeight = 25f;
     [SerializeField] private float beamThickness = 0.3f;
 
+    [SerializeField] private AudioClip finishSfx;
+    [SerializeField] private AudioClip incompleteSfx;
+
     private void Reset()
     {
         GetComponent<Collider>().isTrigger = true;
@@ -46,10 +49,20 @@ public class FinishLine : MonoBehaviour
 
         if (RaceManager.Instance.TryFinishRace())
         {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySFX(finishSfx);
+            }
+
             OnFinished.Invoke();
         }
         else if (RaceManager.Instance.CurrentState == RaceManager.RaceState.Racing)
         {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySFX(incompleteSfx);
+            }
+
             OnIncomplete.Invoke();
         }
     }

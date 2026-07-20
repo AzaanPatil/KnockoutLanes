@@ -41,6 +41,15 @@ public class CarController : MonoBehaviour
     [Tooltip("Minimum angle between the car's facing and its actual velocity to count as a genuine sideways slide.")]
     [SerializeField] private float driftSlipAngleThreshold = 15f;
 
+    [Header("Off-Track Handling")]
+    [Tooltip("Tag used to mark ground outside the track (e.g. the grass plane). A wheel touching it loses grip and adds drag.")]
+    [SerializeField] private string offTrackTag = "OffTrack";
+    [Range(0f, 1f)]
+    [Tooltip("Grip multiplier applied to a wheel's forward/sideways friction while it's off-track. Lower = more slippery.")]
+    [SerializeField] private float offTrackGripMultiplier = 0.4f;
+    [Tooltip("Extra Rigidbody linear drag added per wheel currently off-track -- this is what makes off-track \"slow you down significantly,\" separate from the grip loss.")]
+    [SerializeField] private float offTrackDragPerWheel = 1.5f;
+
     // Gated off by RaceManager during the pre-race countdown so the car
     // can't jump the start.
     public bool CanDrive { get; set; } = true;
@@ -54,16 +63,22 @@ public class CarController : MonoBehaviour
     private float verticalInput;
     private float horizontalInput;
     private bool handbrakeInput;
-    private float defaultRearSidewaysStiffness;
+    private float defaultSidewaysStiffness;
+    private float defaultForwardStiffness;
+    private float baseLinearDamping;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.centerOfMass += centerOfMassOffset;
- 
-        // Cache the rear wheels' default sideways grip so we can restore it
-        // once the handbrake is released.
-        defaultRearSidewaysStiffness = wheelColliderRL.sidewaysFriction.stiffness;
+
+        // Cache the wheels' default friction (assumes all four start with
+        // the same values) so off-track handling and the handbrake can each
+        // compute a fresh multiplier every frame instead of compounding on
+        // top of whatever value happened to be set last frame.
+        defaultSidewaysStiffness = wheelColliderFL.sidewaysFriction.stiffness;
+        defaultForwardStiffness = wheelColliderFL.forwardFriction.stiffness;
+        baseLinearDamping = rb.linearDamping;
     }
  
     private void Update()
@@ -92,6 +107,7 @@ public class CarController : MonoBehaviour
         HandleSteering();
         HandleHandbrake();
         UpdateDriftState();
+        UpdateOffTrackHandling();
     }
 
     private void HoldForCountdown()
@@ -143,26 +159,18 @@ public class CarController : MonoBehaviour
  
     private void HandleHandbrake()
     {
-        WheelFrictionCurve rearFriction = wheelColliderRL.sidewaysFriction;
- 
+        // Rear sideways grip while the handbrake is held is now computed in
+        // UpdateOffTrackHandling() (it needs to combine with the off-track
+        // grip multiplier), so this just handles the brake lock.
         if (handbrakeInput)
         {
-            // Lock the rear brakes and loosen rear sideways grip so the back
-            // end steps out — this combination is what produces the drift.
+            // Lock the rear brakes -- combined with the loosened rear
+            // sideways grip, this is what produces the drift.
             wheelColliderRL.brakeTorque = handbrakeBrakeTorque;
             wheelColliderRR.brakeTorque = handbrakeBrakeTorque;
-            rearFriction.stiffness = handbrakeSidewaysStiffness;
         }
-        else
-        {
-            // Leave brakeTorque as whatever HandleMotor() already set (0
-            // while accelerating, engineBrakeTorque while coasting) instead
-            // of stomping it back to 0 here.
-            rearFriction.stiffness = defaultRearSidewaysStiffness;
-        }
- 
-        wheelColliderRL.sidewaysFriction = rearFriction;
-        wheelColliderRR.sidewaysFriction = rearFriction;
+        // When not held, brakeTorque is already whatever HandleMotor() set
+        // (0 while accelerating, engineBrakeTorque while coasting).
     }
  
     private void UpdateDriftState()
@@ -184,6 +192,45 @@ public class CarController : MonoBehaviour
 
         float slipAngle = Vector3.Angle(transform.forward, horizontalVelocity);
         IsDrifting = slipAngle > driftSlipAngleThreshold;
+    }
+
+    private void UpdateOffTrackHandling()
+    {
+        bool offFL = IsWheelOffTrack(wheelColliderFL);
+        bool offFR = IsWheelOffTrack(wheelColliderFR);
+        bool offRL = IsWheelOffTrack(wheelColliderRL);
+        bool offRR = IsWheelOffTrack(wheelColliderRR);
+
+        ApplyWheelFriction(wheelColliderFL, defaultSidewaysStiffness, offFL);
+        ApplyWheelFriction(wheelColliderFR, defaultSidewaysStiffness, offFR);
+
+        // Rear sideways grip starts from the handbrake-loosened value while
+        // drifting, or the normal default otherwise -- off-track grip loss
+        // then applies on top of whichever of those is currently active.
+        float rearBaseSideways = handbrakeInput ? handbrakeSidewaysStiffness : defaultSidewaysStiffness;
+        ApplyWheelFriction(wheelColliderRL, rearBaseSideways, offRL);
+        ApplyWheelFriction(wheelColliderRR, rearBaseSideways, offRR);
+
+        int offTrackWheelCount = (offFL ? 1 : 0) + (offFR ? 1 : 0) + (offRL ? 1 : 0) + (offRR ? 1 : 0);
+        rb.linearDamping = baseLinearDamping + offTrackWheelCount * offTrackDragPerWheel;
+    }
+
+    private bool IsWheelOffTrack(WheelCollider wheel)
+    {
+        return wheel.GetGroundHit(out WheelHit hit) && hit.collider != null && hit.collider.CompareTag(offTrackTag);
+    }
+
+    private void ApplyWheelFriction(WheelCollider wheel, float baseSidewaysStiffness, bool offTrack)
+    {
+        float gripMultiplier = offTrack ? offTrackGripMultiplier : 1f;
+
+        WheelFrictionCurve forward = wheel.forwardFriction;
+        forward.stiffness = defaultForwardStiffness * gripMultiplier;
+        wheel.forwardFriction = forward;
+
+        WheelFrictionCurve sideways = wheel.sidewaysFriction;
+        sideways.stiffness = baseSidewaysStiffness * gripMultiplier;
+        wheel.sidewaysFriction = sideways;
     }
 
     private void UpdateWheelVisual(WheelCollider collider, Transform wheelMesh)
