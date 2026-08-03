@@ -41,6 +41,18 @@ public class CarController : MonoBehaviour
     [Tooltip("Minimum angle between the car's facing and its actual velocity to count as a genuine sideways slide.")]
     [SerializeField] private float driftSlipAngleThreshold = 15f;
 
+    [Header("Boost")]
+    [SerializeField] private KeyCode boostKey = KeyCode.LeftShift;
+    [Tooltip("Motor torque multiplier while boosting.")]
+    [SerializeField] private float boostTorqueMultiplier = 1.6f;
+    [SerializeField] private float maxBoostMeter = 100f;
+    [Tooltip("How fast the meter drains per second while actively boosting -- at the default, a full meter lasts 2.5 seconds.")]
+    [SerializeField] private float boostDrainPerSecond = 40f;
+    [Tooltip("How fast the meter refills per second once you stop boosting.")]
+    [SerializeField] private float boostRegenPerSecond = 20f;
+    [Tooltip("Seconds after releasing boost before regen starts -- stops rapid tap-release-tap from feeling free.")]
+    [SerializeField] private float boostRegenDelay = 1f;
+
     [Header("Off-Track Handling")]
     [Tooltip("Tag used to mark ground outside the track (e.g. the grass plane). A wheel touching it loses grip and adds drag.")]
     [SerializeField] private string offTrackTag = "OffTrack";
@@ -49,6 +61,15 @@ public class CarController : MonoBehaviour
     [SerializeField] private float offTrackGripMultiplier = 0.4f;
     [Tooltip("Extra Rigidbody linear drag added per wheel currently off-track -- this is what makes off-track \"slow you down significantly,\" separate from the grip loss.")]
     [SerializeField] private float offTrackDragPerWheel = 1.5f;
+
+    [Header("Dirt Road Handling")]
+    [Tooltip("Tag used to mark road segments that are a rougher dirt surface rather than smooth asphalt (e.g. Landfill's road). RaceManager can tag its generated road with this. A course whose road doesn't use this tag drives like normal asphalt.")]
+    [SerializeField] private string dirtRoadTag = "DirtRoad";
+    [Range(0f, 1f)]
+    [Tooltip("Grip multiplier applied to a wheel's forward/sideways friction while it's on a dirt road segment -- between full asphalt grip (1) and the harsher off-track penalty.")]
+    [SerializeField] private float dirtRoadGripMultiplier = 0.75f;
+    [Tooltip("Extra Rigidbody linear drag added per wheel currently on a dirt road segment -- smaller than the off-track penalty, but enough that dirt roads noticeably decelerate faster than asphalt.")]
+    [SerializeField] private float dirtRoadDragPerWheel = 0.6f;
 
     // Gated off by RaceManager during the pre-race countdown so the car
     // can't jump the start.
@@ -59,10 +80,18 @@ public class CarController : MonoBehaviour
     // line). Read by DriftStyleTracker to build the style multiplier.
     public bool IsDrifting { get; private set; }
 
+    // True while boost is actively applying extra torque (key held, meter
+    // not empty, throttle pressed). Read by RaceHUD for the boost meter bar.
+    public bool IsBoosting { get; private set; }
+    public float BoostMeter01 => boostMeter / maxBoostMeter;
+
     private Rigidbody rb;
     private float verticalInput;
     private float horizontalInput;
     private bool handbrakeInput;
+    private bool boostInput;
+    private float boostMeter;
+    private float timeSinceBoostReleased;
     private float defaultSidewaysStiffness;
     private float defaultForwardStiffness;
     private float baseLinearDamping;
@@ -71,6 +100,7 @@ public class CarController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.centerOfMass += centerOfMassOffset;
+        boostMeter = maxBoostMeter;
 
         // Cache the wheels' default friction (assumes all four start with
         // the same values) so off-track handling and the handbrake can each
@@ -88,7 +118,8 @@ public class CarController : MonoBehaviour
         verticalInput = Input.GetAxis("Vertical");
         horizontalInput = Input.GetAxis("Horizontal");
         handbrakeInput = Input.GetKey(KeyCode.Space);
- 
+        boostInput = Input.GetKey(boostKey);
+
         UpdateWheelVisual(wheelColliderFL, wheelMeshFL);
         UpdateWheelVisual(wheelColliderFR, wheelMeshFR);
         UpdateWheelVisual(wheelColliderRL, wheelMeshRL);
@@ -107,7 +138,7 @@ public class CarController : MonoBehaviour
         HandleSteering();
         HandleHandbrake();
         UpdateDriftState();
-        UpdateOffTrackHandling();
+        UpdateSurfaceHandling();
     }
 
     private void HoldForCountdown()
@@ -126,7 +157,10 @@ public class CarController : MonoBehaviour
  
     private void HandleMotor()
     {
-        float motorTorque = verticalInput * maxMotorTorque;
+        UpdateBoost();
+
+        float torqueMultiplier = IsBoosting ? boostTorqueMultiplier : 1f;
+        float motorTorque = verticalInput * maxMotorTorque * torqueMultiplier;
 
         // Rear-wheel drive. If the car feels underpowered once you're testing
         // with real weight/scale, you can also apply a (smaller) torque to the
@@ -173,6 +207,29 @@ public class CarController : MonoBehaviour
         // (0 while accelerating, engineBrakeTorque while coasting).
     }
  
+    private void UpdateBoost()
+    {
+        // Only while actually accelerating forward -- no boosting while
+        // idle, coasting, or in reverse.
+        bool wantsBoost = boostInput && boostMeter > 0f && verticalInput > 0.1f;
+
+        if (wantsBoost)
+        {
+            IsBoosting = true;
+            boostMeter = Mathf.Max(0f, boostMeter - boostDrainPerSecond * Time.fixedDeltaTime);
+            timeSinceBoostReleased = 0f;
+        }
+        else
+        {
+            IsBoosting = false;
+            timeSinceBoostReleased += Time.fixedDeltaTime;
+            if (timeSinceBoostReleased >= boostRegenDelay)
+            {
+                boostMeter = Mathf.Min(maxBoostMeter, boostMeter + boostRegenPerSecond * Time.fixedDeltaTime);
+            }
+        }
+    }
+
     private void UpdateDriftState()
     {
         if (!handbrakeInput)
@@ -194,35 +251,60 @@ public class CarController : MonoBehaviour
         IsDrifting = slipAngle > driftSlipAngleThreshold;
     }
 
-    private void UpdateOffTrackHandling()
-    {
-        bool offFL = IsWheelOffTrack(wheelColliderFL);
-        bool offFR = IsWheelOffTrack(wheelColliderFR);
-        bool offRL = IsWheelOffTrack(wheelColliderRL);
-        bool offRR = IsWheelOffTrack(wheelColliderRR);
+    // Asphalt is the default -- a wheel only counts as Dirt or OffTrack if
+    // it's touching a collider tagged accordingly. Dirt is a middle tier:
+    // rougher and slower than asphalt, but not as punishing as driving off
+    // the course entirely.
+    private enum WheelSurface { Asphalt, Dirt, OffTrack }
 
-        ApplyWheelFriction(wheelColliderFL, defaultSidewaysStiffness, offFL);
-        ApplyWheelFriction(wheelColliderFR, defaultSidewaysStiffness, offFR);
+    private void UpdateSurfaceHandling()
+    {
+        WheelSurface surfaceFL = GetWheelSurface(wheelColliderFL);
+        WheelSurface surfaceFR = GetWheelSurface(wheelColliderFR);
+        WheelSurface surfaceRL = GetWheelSurface(wheelColliderRL);
+        WheelSurface surfaceRR = GetWheelSurface(wheelColliderRR);
+
+        ApplyWheelFriction(wheelColliderFL, defaultSidewaysStiffness, surfaceFL);
+        ApplyWheelFriction(wheelColliderFR, defaultSidewaysStiffness, surfaceFR);
 
         // Rear sideways grip starts from the handbrake-loosened value while
-        // drifting, or the normal default otherwise -- off-track grip loss
+        // drifting, or the normal default otherwise -- surface grip loss
         // then applies on top of whichever of those is currently active.
         float rearBaseSideways = handbrakeInput ? handbrakeSidewaysStiffness : defaultSidewaysStiffness;
-        ApplyWheelFriction(wheelColliderRL, rearBaseSideways, offRL);
-        ApplyWheelFriction(wheelColliderRR, rearBaseSideways, offRR);
+        ApplyWheelFriction(wheelColliderRL, rearBaseSideways, surfaceRL);
+        ApplyWheelFriction(wheelColliderRR, rearBaseSideways, surfaceRR);
 
-        int offTrackWheelCount = (offFL ? 1 : 0) + (offFR ? 1 : 0) + (offRL ? 1 : 0) + (offRR ? 1 : 0);
-        rb.linearDamping = baseLinearDamping + offTrackWheelCount * offTrackDragPerWheel;
+        float extraDrag = SurfaceDragPerWheel(surfaceFL) + SurfaceDragPerWheel(surfaceFR)
+            + SurfaceDragPerWheel(surfaceRL) + SurfaceDragPerWheel(surfaceRR);
+        rb.linearDamping = baseLinearDamping + extraDrag;
     }
 
-    private bool IsWheelOffTrack(WheelCollider wheel)
+    private WheelSurface GetWheelSurface(WheelCollider wheel)
     {
-        return wheel.GetGroundHit(out WheelHit hit) && hit.collider != null && hit.collider.CompareTag(offTrackTag);
+        if (!wheel.GetGroundHit(out WheelHit hit) || hit.collider == null) return WheelSurface.Asphalt;
+        if (hit.collider.CompareTag(offTrackTag)) return WheelSurface.OffTrack;
+        if (hit.collider.CompareTag(dirtRoadTag)) return WheelSurface.Dirt;
+        return WheelSurface.Asphalt;
     }
 
-    private void ApplyWheelFriction(WheelCollider wheel, float baseSidewaysStiffness, bool offTrack)
+    private float SurfaceDragPerWheel(WheelSurface surface)
     {
-        float gripMultiplier = offTrack ? offTrackGripMultiplier : 1f;
+        return surface switch
+        {
+            WheelSurface.OffTrack => offTrackDragPerWheel,
+            WheelSurface.Dirt => dirtRoadDragPerWheel,
+            _ => 0f,
+        };
+    }
+
+    private void ApplyWheelFriction(WheelCollider wheel, float baseSidewaysStiffness, WheelSurface surface)
+    {
+        float gripMultiplier = surface switch
+        {
+            WheelSurface.OffTrack => offTrackGripMultiplier,
+            WheelSurface.Dirt => dirtRoadGripMultiplier,
+            _ => 1f,
+        };
 
         WheelFrictionCurve forward = wheel.forwardFriction;
         forward.stiffness = defaultForwardStiffness * gripMultiplier;

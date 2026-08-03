@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 // In-race HUD (GDD 6.1): timer, score, style multiplier, checkpoint
 // progress.
@@ -16,6 +17,11 @@ public class RaceHUD : MonoBehaviour
     [Tooltip("Multiplier from Unity units/second to the displayed speed unit (2.237 = MPH, 3.6 = km/h).")]
     [SerializeField] private float speedUnitMultiplier = 2.237f;
     [SerializeField] private string speedUnitLabel = "MPH";
+
+    [Header("Boost Meter")]
+    [Tooltip("An Image with Image Type set to Filled (Horizontal) -- fillAmount is driven by CarController.BoostMeter01.")]
+    [SerializeField] private Image boostMeterFill;
+    [SerializeField] private CarController carController;
 
     private void Start()
     {
@@ -74,6 +80,7 @@ public class RaceHUD : MonoBehaviour
         styleMultiplierText.gameObject.SetActive(visible);
         checkpointText.gameObject.SetActive(visible);
         if (speedText != null) speedText.gameObject.SetActive(visible);
+        if (boostMeterFill != null) boostMeterFill.gameObject.SetActive(visible);
     }
 
     private void Update()
@@ -85,6 +92,11 @@ public class RaceHUD : MonoBehaviour
         {
             float displaySpeed = carRigidbody.linearVelocity.magnitude * speedUnitMultiplier;
             speedText.text = $"{Mathf.RoundToInt(displaySpeed)} {speedUnitLabel}";
+        }
+
+        if (boostMeterFill != null && carController != null)
+        {
+            boostMeterFill.fillAmount = carController.BoostMeter01;
         }
     }
 

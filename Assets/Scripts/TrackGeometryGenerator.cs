@@ -17,13 +17,15 @@ using UnityEditor;
 // change checkpoint gameplay at all.
 public static class TrackGeometryGenerator
 {
-    public static void Generate(Transform parent, IReadOnlyList<Transform> waypoints, float trackWidth, float barrierHeight, float barrierThickness, int subdivisionsPerSegment, Material roadMaterial, Material barrierMaterial)
+    // Takes an already-built path (see BuildSmoothPath / ConformPathToTerrain
+    // / ClampPathElevation) rather than building one internally, so callers
+    // can apply the exact same path -- terrain-conformed, elevation-clamped,
+    // whatever -- to the road, checkpoints, and pins consistently instead of
+    // each one computing a slightly different version.
+    public static void Generate(Transform parent, List<Vector3> path, float trackWidth, float barrierHeight, float barrierThickness, Material roadMaterial, Material barrierMaterial, bool closedLoop = true, string roadTag = null)
     {
         Clear(parent);
 
-        if (waypoints.Count < 3) return;
-
-        List<Vector3> path = BuildSmoothPath(waypoints, Mathf.Max(1, subdivisionsPerSegment));
         if (path.Count < 2) return;
 
         GameObject trackRoot = new GameObject("Track");
@@ -31,11 +33,14 @@ public static class TrackGeometryGenerator
         trackRoot.transform.localPosition = Vector3.zero;
         Undo.RegisterCreatedObjectUndo(trackRoot, "Build Track Geometry");
 
-        for (int i = 0; i < path.Count; i++)
+        // Point-to-point (open) tracks stop one segment short -- no wrap-
+        // around connecting the last point back to the first.
+        int segmentCount = closedLoop ? path.Count : path.Count - 1;
+        for (int i = 0; i < segmentCount; i++)
         {
             Vector3 from = path[i];
             Vector3 to = path[(i + 1) % path.Count];
-            BuildSegment(trackRoot.transform, from, to, i, trackWidth, barrierHeight, barrierThickness, roadMaterial, barrierMaterial);
+            BuildSegment(trackRoot.transform, from, to, i, trackWidth, barrierHeight, barrierThickness, roadMaterial, barrierMaterial, roadTag);
         }
     }
 
@@ -49,23 +54,34 @@ public static class TrackGeometryGenerator
     }
 
     // Public so other tools (e.g. RaceManager's pin-cluster snapping) can
-    // reuse the exact same curve the road itself is built from.
-    public static List<Vector3> BuildSmoothPath(IReadOnlyList<Transform> waypoints, int subdivisionsPerSegment)
+    // reuse the exact same curve the road itself is built from. closedLoop
+    // = false gives a point-to-point path: no segment wraps from the last
+    // waypoint back to the first, and the end points reuse themselves as
+    // their own "phantom" spline control point instead of wrapping around
+    // (the standard trick for an open Catmull-Rom curve).
+    public static List<Vector3> BuildSmoothPath(IReadOnlyList<Transform> waypoints, int subdivisionsPerSegment, bool closedLoop = true)
     {
         var path = new List<Vector3>();
         int count = waypoints.Count;
+        int segmentCount = closedLoop ? count : count - 1;
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < segmentCount; i++)
         {
-            Transform p0t = waypoints[(i - 1 + count) % count];
-            Transform p1t = waypoints[i];
-            Transform p2t = waypoints[(i + 1) % count];
-            Transform p3t = waypoints[(i + 2) % count];
+            Transform p0t = waypoints[WrapOrClampIndex(i - 1, count, closedLoop)];
+            Transform p1t = waypoints[WrapOrClampIndex(i, count, closedLoop)];
+            Transform p2t = waypoints[WrapOrClampIndex(i + 1, count, closedLoop)];
+            Transform p3t = waypoints[WrapOrClampIndex(i + 2, count, closedLoop)];
             if (p0t == null || p1t == null || p2t == null || p3t == null) continue;
 
             Vector3 p0 = p0t.position, p1 = p1t.position, p2 = p2t.position, p3 = p3t.position;
 
-            for (int s = 0; s < subdivisionsPerSegment; s++)
+            // The final segment of an open path needs to sample all the way
+            // to t = 1 to actually reach the last waypoint -- for a closed
+            // loop that point is naturally covered by segment 0's t = 0.
+            bool includeEndpoint = !closedLoop && i == segmentCount - 1;
+            int sampleCount = includeEndpoint ? subdivisionsPerSegment + 1 : subdivisionsPerSegment;
+
+            for (int s = 0; s < sampleCount; s++)
             {
                 float t = s / (float)subdivisionsPerSegment;
                 path.Add(CatmullRom(p0, p1, p2, p3, t));
@@ -75,11 +91,17 @@ public static class TrackGeometryGenerator
         return path;
     }
 
+    private static int WrapOrClampIndex(int index, int count, bool wrap)
+    {
+        return wrap ? (index % count + count) % count : Mathf.Clamp(index, 0, count - 1);
+    }
+
     // Nearest point on the path to an arbitrary position, plus the path's
-    // forward direction there (direction to the next path point) -- lets
-    // callers both reposition something onto the track and orient it
-    // sensibly along the driving direction.
-    public static void GetClosestPointOnPath(List<Vector3> path, Vector3 position, out Vector3 closestPoint, out Vector3 forwardDirection)
+    // forward direction there -- lets callers both reposition something
+    // onto the track and orient it sensibly along the driving direction.
+    // For an open path's very last point, "forward" continues the direction
+    // arriving from the previous point rather than wrapping to point 0.
+    public static void GetClosestPointOnPath(List<Vector3> path, Vector3 position, out Vector3 closestPoint, out Vector3 forwardDirection, bool closedLoop = true)
     {
         int closestIndex = 0;
         float closestDistSqr = (path[0] - position).sqrMagnitude;
@@ -96,10 +118,93 @@ public static class TrackGeometryGenerator
 
         closestPoint = path[closestIndex];
 
-        Vector3 next = path[(closestIndex + 1) % path.Count];
-        Vector3 forward = next - closestPoint;
+        Vector3 forward;
+        bool isOpenPathEnd = !closedLoop && closestIndex == path.Count - 1;
+        if (isOpenPathEnd)
+        {
+            Vector3 prevPoint = path[Mathf.Max(closestIndex - 1, 0)];
+            forward = closestPoint - prevPoint;
+        }
+        else
+        {
+            Vector3 next = path[(closestIndex + 1) % path.Count];
+            forward = next - closestPoint;
+        }
+
         forward.y = 0f;
         forwardDirection = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
+    }
+
+    // Public so RaceManager's checkpoint-snapping tool can sample the same
+    // terrain the road itself conforms to.
+    public static float SampleTerrainHeight(Terrain terrain, Vector3 worldPosition)
+    {
+        return terrain.SampleHeight(worldPosition) + terrain.transform.position.y;
+    }
+
+    // Public so RaceManager's checkpoint-snapping tool can reuse the exact
+    // same conforming logic the road path uses.
+    public static void ConformPathToTerrain(List<Vector3> path, Terrain terrain)
+    {
+        for (int i = 0; i < path.Count; i++)
+        {
+            Vector3 point = path[i];
+            point.y = SampleTerrainHeight(terrain, point);
+            path[i] = point;
+        }
+    }
+
+    // Clamps every point's height to within maxDeviation of the path's
+    // average height -- keeps the track relatively flat even if the terrain
+    // underneath has bumps/dips, without needing to hand-flatten the ground.
+    // Pass maxDeviation <= 0 to skip (e.g. Mountain Course, which wants the
+    // road to actually follow real elevation).
+    public static void ClampPathElevation(List<Vector3> path, float maxDeviation)
+    {
+        if (path.Count == 0 || maxDeviation <= 0f) return;
+
+        float averageHeight = 0f;
+        foreach (Vector3 point in path)
+        {
+            averageHeight += point.y;
+        }
+        averageHeight /= path.Count;
+
+        for (int i = 0; i < path.Count; i++)
+        {
+            Vector3 point = path[i];
+            point.y = Mathf.Clamp(point.y, averageHeight - maxDeviation, averageHeight + maxDeviation);
+            path[i] = point;
+        }
+    }
+
+    // Averages each point's height with its neighbors, a few passes --
+    // smooths over the sharp steps that clamping alone can introduce at the
+    // boundary between "was clamped" and "wasn't." closedLoop = false keeps
+    // the two ends from being smoothed against each other, since they're
+    // not actually adjacent on a point-to-point track.
+    public static void SmoothPathElevation(List<Vector3> path, int passes, bool closedLoop = true)
+    {
+        if (path.Count < 3) return;
+
+        for (int pass = 0; pass < passes; pass++)
+        {
+            var smoothedHeights = new float[path.Count];
+            for (int i = 0; i < path.Count; i++)
+            {
+                float prevY = path[WrapOrClampIndex(i - 1, path.Count, closedLoop)].y;
+                float currentY = path[i].y;
+                float nextY = path[WrapOrClampIndex(i + 1, path.Count, closedLoop)].y;
+                smoothedHeights[i] = (prevY + currentY + nextY) / 3f;
+            }
+
+            for (int i = 0; i < path.Count; i++)
+            {
+                Vector3 point = path[i];
+                point.y = smoothedHeights[i];
+                path[i] = point;
+            }
+        }
     }
 
     private static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
@@ -114,7 +219,7 @@ public static class TrackGeometryGenerator
         );
     }
 
-    private static void BuildSegment(Transform parent, Vector3 from, Vector3 to, int index, float trackWidth, float barrierHeight, float barrierThickness, Material roadMaterial, Material barrierMaterial)
+    private static void BuildSegment(Transform parent, Vector3 from, Vector3 to, int index, float trackWidth, float barrierHeight, float barrierThickness, Material roadMaterial, Material barrierMaterial, string roadTag = null)
     {
         Vector3 direction = to - from;
         direction.y = 0f;
@@ -134,8 +239,12 @@ public static class TrackGeometryGenerator
         float roadOverlap = trackWidth * 0.5f;
         float barrierOverlap = barrierThickness * 2f;
 
-        CreateBox(parent, $"Road_{index}", midpoint + Vector3.up * 0.05f, rotation,
+        GameObject road = CreateBox(parent, $"Road_{index}", midpoint + Vector3.up * 0.05f, rotation,
             new Vector3(trackWidth, 0.1f, length + roadOverlap), roadMaterial);
+        if (!string.IsNullOrEmpty(roadTag))
+        {
+            road.tag = roadTag;
+        }
 
         CreateBarrierBox(parent, midpoint, rotation, length + barrierOverlap, trackWidth * 0.5f, barrierHeight, barrierThickness, index, "L", barrierMaterial);
         CreateBarrierBox(parent, midpoint, rotation, length + barrierOverlap, -trackWidth * 0.5f, barrierHeight, barrierThickness, index, "R", barrierMaterial);

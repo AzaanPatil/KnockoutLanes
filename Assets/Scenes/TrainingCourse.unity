@@ -5336,6 +5336,9 @@ MonoBehaviour:
   centerOfMassOffset: {x: 0, y: -0.5, z: 0}
   driftMinSpeed: 3
   driftSlipAngleThreshold: 15
+  offTrackTag: OffTrack
+  offTrackGripMultiplier: 0.4
+  offTrackDragPerWheel: 1.5
 --- !u!54 &324020313
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5409,6 +5412,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f45bf19cd2aad33468b7f9ef3ae74569, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BarrierImpactPenalty
+  crashSfx: {fileID: 0}
 --- !u!114 &324020317
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7534,6 +7538,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &454271637
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -10385,6 +10390,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &660823437
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11433,7 +11439,7 @@ GameObject:
   - component: {fileID: 724612010}
   m_Layer: 0
   m_Name: Plane
-  m_TagString: Untagged
+  m_TagString: OffTrack
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12353,7 +12359,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Quit
+  m_text: Restart
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -14311,7 +14317,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 898121053}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1834075995}
+        m_TargetAssemblyTypeName: PauseMenu, Assembly-CSharp
+        m_MethodName: ReturnToMenu
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &898121053
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15969,6 +15987,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &992550260
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -16212,6 +16231,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1014967898
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -19007,7 +19027,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1232988861}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1834075995}
+        m_TargetAssemblyTypeName: PauseMenu, Assembly-CSharp
+        m_MethodName: Resume
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1232988861
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20485,6 +20517,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1303719906
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -21046,6 +21079,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1338925133
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -22479,6 +22513,8 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: fa6b10fdde29ba644b57a7bf479438d3, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  finishSfx: {fileID: 0}
+  incompleteSfx: {fileID: 0}
 --- !u!65 &1405967252
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -24443,6 +24479,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1481647571
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -25519,6 +25556,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1544154098
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -29281,7 +29319,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 270e9fa8d173d4f4a8d79718119dc991, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PauseMenu
-  pausePanel: {fileID: 0}
+  pausePanel: {fileID: 1344512552}
 --- !u!1 &1839276941
 GameObject:
   m_ObjectHideFlags: 0
@@ -31677,7 +31715,7 @@ GameObject:
   - component: {fileID: 1971914968}
   - component: {fileID: 1971914967}
   m_Layer: 5
-  m_Name: Quit
+  m_Name: Restart
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -31746,7 +31784,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1971914968}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1834075995}
+        m_TargetAssemblyTypeName: PauseMenu, Assembly-CSharp
+        m_MethodName: Restart
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1971914968
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -32343,6 +32393,7 @@ MonoBehaviour:
   beamMaterial: {fileID: 2100000, guid: 98e54fb059b5a324aa845873df511289, type: 2}
   beamHeight: 25
   beamThickness: 0.3
+  passedSfx: {fileID: 0}
 --- !u!65 &1986440391
 BoxCollider:
   m_ObjectHideFlags: 0

@@ -7,6 +7,14 @@ public class CountdownUI : MonoBehaviour
     [SerializeField] private TMP_Text countdownText;
     [SerializeField] private float goDisplaySeconds = 1f;
 
+    [Header("Audio")]
+    [Tooltip("Played once when \"READY...\" first appears.")]
+    [SerializeField] private AudioClip readySfx;
+    [Tooltip("Played on each numeric tick (3, 2, 1).")]
+    [SerializeField] private AudioClip tickSfx;
+    [Tooltip("Played once on \"GO!\"")]
+    [SerializeField] private AudioClip goSfx;
+
     private void Start()
     {
         RaceManager.Instance.OnCountdownReady.AddListener(HandleCountdownReady);
@@ -26,12 +34,22 @@ public class CountdownUI : MonoBehaviour
     {
         countdownPanel.SetActive(true);
         countdownText.text = "READY...";
+        PlaySfx(readySfx);
     }
 
     private void HandleCountdownTick(int remaining)
     {
         countdownPanel.SetActive(true);
         countdownText.text = remaining > 0 ? remaining.ToString() : "GO!";
+        PlaySfx(remaining > 0 ? tickSfx : goSfx);
+    }
+
+    private void PlaySfx(AudioClip clip)
+    {
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(clip);
+        }
     }
 
     private void HandleRaceStart()
