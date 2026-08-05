@@ -14,11 +14,20 @@ public class VehicleReset : MonoBehaviour
     [SerializeField] private float flippedDotThreshold = 0.3f;
     [SerializeField] private float flippedTimeToReset = 1.5f;
 
+    [Header("Self-Right (hold accelerator while flipped)")]
+    [Tooltip("Needed to read the player's current throttle input.")]
+    [SerializeField] private CarController carController;
+    [Tooltip("How long to hold the accelerator while flipped before the car rights itself in place -- much faster than waiting out the full flipped-reset timer above, and doesn't cost track position the way teleporting to the last checkpoint does.")]
+    [SerializeField] private float selfRightHoldTime = 0.75f;
+    [Tooltip("Extra height added when righting in place, so the car doesn't spawn back down still clipping into whatever flipped it.")]
+    [SerializeField] private float selfRightHeightOffset = 0.5f;
+
     public UnityEvent OnReset = new UnityEvent();
 
     private Rigidbody rb;
     private float stuckTimer;
     private float flippedTimer;
+    private float selfRightTimer;
 
     private void Awake()
     {
@@ -31,19 +40,46 @@ public class VehicleReset : MonoBehaviour
         {
             stuckTimer = 0f;
             flippedTimer = 0f;
+            selfRightTimer = 0f;
             return;
         }
 
         bool isFlipped = Vector3.Dot(transform.up, Vector3.up) < flippedDotThreshold;
         flippedTimer = isFlipped ? flippedTimer + Time.deltaTime : 0f;
 
+        bool holdingAccelerator = carController != null && Mathf.Abs(carController.ThrottleInput) > 0.1f;
+        selfRightTimer = (isFlipped && holdingAccelerator) ? selfRightTimer + Time.deltaTime : 0f;
+
         bool isStuck = rb.linearVelocity.magnitude < stuckSpeedThreshold;
         stuckTimer = isStuck ? stuckTimer + Time.deltaTime : 0f;
 
-        if (flippedTimer >= flippedTimeToReset || stuckTimer >= stuckTimeToReset)
+        if (selfRightTimer >= selfRightHoldTime)
+        {
+            SelfRightInPlace();
+        }
+        else if (flippedTimer >= flippedTimeToReset || stuckTimer >= stuckTimeToReset)
         {
             ResetToLastCheckpoint();
         }
+    }
+
+    // Rights the car back onto its wheels at its current position -- unlike
+    // ResetToLastCheckpoint, this doesn't cost the player any track
+    // progress, so it's the reward for actively trying to recover (holding
+    // the accelerator) rather than just waiting out the timer.
+    private void SelfRightInPlace()
+    {
+        Quaternion uprightRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+        Vector3 position = transform.position + Vector3.up * selfRightHeightOffset;
+
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        transform.SetPositionAndRotation(position, uprightRotation);
+
+        flippedTimer = 0f;
+        stuckTimer = 0f;
+        selfRightTimer = 0f;
+        OnReset.Invoke();
     }
 
     private void ResetToLastCheckpoint()

@@ -56,6 +56,22 @@ public class ScoreManager : Singleton<ScoreManager>
         OnStyleMultiplierChanged.Invoke(StyleMultiplier);
     }
 
+    // Knocks the multiplier down by a smaller amount than a full crash
+    // reset -- for lighter, non-Barrier hazards (e.g. traffic cones) that
+    // should still sting stylistically without being as punishing as
+    // smashing into a wall. Doesn't touch the combo clock (lastHitTime),
+    // since this is a penalty, not a stylish action to build off of.
+    public void ApplyStylePenalty(float amount)
+    {
+        if (amount <= 0f) return;
+
+        float penalized = Mathf.Max(1f, StyleMultiplier - amount);
+        if (Mathf.Approximately(penalized, StyleMultiplier)) return;
+
+        StyleMultiplier = penalized;
+        OnStyleMultiplierChanged.Invoke(StyleMultiplier);
+    }
+
     // Builds the multiplier from something other than a pin hit -- e.g.
     // DriftStyleTracker calling this every frame while the car is
     // genuinely drifting. Shares the same combo clock as pin hits, so

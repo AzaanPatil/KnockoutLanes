@@ -85,6 +85,10 @@ public class CarController : MonoBehaviour
     public bool IsBoosting { get; private set; }
     public float BoostMeter01 => boostMeter / maxBoostMeter;
 
+    // Read by VehicleReset to detect the player holding the accelerator
+    // while flipped, to trigger a manual self-right.
+    public float ThrottleInput => verticalInput;
+
     private Rigidbody rb;
     private float verticalInput;
     private float horizontalInput;
