@@ -144,4 +144,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinorHazard
   stylePenalty: 0.7
-  knockSfx: {fileID: 0}
+  knockSfx: {fileID: 8300000, guid: 7e6a7bd684c3fc44b864180846abcc22, type: 3}
