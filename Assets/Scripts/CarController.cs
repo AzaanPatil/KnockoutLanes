@@ -71,6 +71,15 @@ public class CarController : MonoBehaviour
     [Tooltip("Extra Rigidbody linear drag added per wheel currently on a dirt road segment -- smaller than the off-track penalty, but enough that dirt roads noticeably decelerate faster than asphalt.")]
     [SerializeField] private float dirtRoadDragPerWheel = 0.6f;
 
+    [Header("Slippery Terrain Handling")]
+    [Tooltip("Tag used to mark icy/slippery ground (e.g. Mountain Course's summit). RaceManager can tag its generated road with this the same way it does Dirt Road.")]
+    [SerializeField] private string slipperyTag = "Slippery";
+    [Range(0f, 1f)]
+    [Tooltip("Grip multiplier on slippery ground -- deliberately lower than both Dirt Road and off-track, since the point is a genuine loss of control (sliding), not just slowing down.")]
+    [SerializeField] private float slipperyGripMultiplier = 0.3f;
+    [Tooltip("Extra drag per wheel on slippery ground -- kept low/near zero unlike Dirt Road or off-track, since real ice barely resists rolling motion. The danger here is grip loss, not deceleration.")]
+    [SerializeField] private float slipperyDragPerWheel = 0.1f;
+
     // Gated off by RaceManager during the pre-race countdown so the car
     // can't jump the start.
     public bool CanDrive { get; set; } = true;
@@ -255,11 +264,9 @@ public class CarController : MonoBehaviour
         IsDrifting = slipAngle > driftSlipAngleThreshold;
     }
 
-    // Asphalt is the default -- a wheel only counts as Dirt or OffTrack if
-    // it's touching a collider tagged accordingly. Dirt is a middle tier:
-    // rougher and slower than asphalt, but not as punishing as driving off
-    // the course entirely.
-    private enum WheelSurface { Asphalt, Dirt, OffTrack }
+    // Asphalt is the default -- a wheel only counts as Dirt, Slippery, or
+    // OffTrack if it's touching a collider tagged accordingly.
+    private enum WheelSurface { Asphalt, Dirt, Slippery, OffTrack }
 
     private void UpdateSurfaceHandling()
     {
@@ -287,6 +294,7 @@ public class CarController : MonoBehaviour
     {
         if (!wheel.GetGroundHit(out WheelHit hit) || hit.collider == null) return WheelSurface.Asphalt;
         if (hit.collider.CompareTag(offTrackTag)) return WheelSurface.OffTrack;
+        if (hit.collider.CompareTag(slipperyTag)) return WheelSurface.Slippery;
         if (hit.collider.CompareTag(dirtRoadTag)) return WheelSurface.Dirt;
         return WheelSurface.Asphalt;
     }
@@ -297,6 +305,7 @@ public class CarController : MonoBehaviour
         {
             WheelSurface.OffTrack => offTrackDragPerWheel,
             WheelSurface.Dirt => dirtRoadDragPerWheel,
+            WheelSurface.Slippery => slipperyDragPerWheel,
             _ => 0f,
         };
     }
@@ -307,6 +316,7 @@ public class CarController : MonoBehaviour
         {
             WheelSurface.OffTrack => offTrackGripMultiplier,
             WheelSurface.Dirt => dirtRoadGripMultiplier,
+            WheelSurface.Slippery => slipperyGripMultiplier,
             _ => 1f,
         };
 
