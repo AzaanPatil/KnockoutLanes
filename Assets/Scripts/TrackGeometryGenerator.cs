@@ -221,8 +221,13 @@ public static class TrackGeometryGenerator
 
     private static void BuildSegment(Transform parent, Vector3 from, Vector3 to, int index, float trackWidth, float barrierHeight, float barrierThickness, Material roadMaterial, Material barrierMaterial, string roadTag = null)
     {
+        // Uses the full 3D direction (not flattened to horizontal) so each
+        // segment tilts to match the actual slope between its two points --
+        // on relatively flat courses this is indistinguishable from the old
+        // horizontal-only behavior, but on real elevation (Mountain Course)
+        // flattening it produced a "staircase of level shingles" instead of
+        // a ramp that hugs the incline.
         Vector3 direction = to - from;
-        direction.y = 0f;
         float length = direction.magnitude;
         if (length < 0.01f) return;
         direction.Normalize();
