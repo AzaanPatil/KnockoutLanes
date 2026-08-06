@@ -14,18 +14,28 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private float rotationSmoothSpeed = 6f;
 
     private Vector3 velocity;
+    private float sensitivity = 1f;
 
     public void SetTarget(Transform newTarget) => target = newTarget;
+
+    private void Start()
+    {
+        // Higher sensitivity = camera reacts faster (less smoothing time,
+        // faster rotation catch-up), matching what a player expects from a
+        // "sensitivity" slider.
+        sensitivity = Mathf.Max(0.1f, GameSettings.CameraSensitivity);
+    }
 
     private void LateUpdate()
     {
         if (target == null) return;
 
         Vector3 desiredPosition = target.TransformPoint(offset);
-        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref velocity, positionSmoothTime);
+        float effectiveSmoothTime = positionSmoothTime / sensitivity;
+        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref velocity, effectiveSmoothTime);
 
         Vector3 lookPoint = target.position + Vector3.up;
         Quaternion desiredRotation = Quaternion.LookRotation(lookPoint - transform.position, Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, rotationSmoothSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, rotationSmoothSpeed * sensitivity * Time.deltaTime);
     }
 }

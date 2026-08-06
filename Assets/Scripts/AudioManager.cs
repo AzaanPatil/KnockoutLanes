@@ -17,6 +17,6 @@ public class AudioManager : Singleton<AudioManager>
     public void PlaySFX(AudioClip clip, float volume = 1f)
     {
         if (clip == null) return;
-        audioSource.PlayOneShot(clip, volume);
+        audioSource.PlayOneShot(clip, volume * GameSettings.SfxVolume);
     }
 }

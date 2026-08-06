@@ -21,6 +21,26 @@ public class EngineAudio : MonoBehaviour
 
     private void Start()
     {
+        if (RaceManager.Instance != null)
+        {
+            RaceManager.Instance.OnRaceStart.AddListener(HandleRaceStart);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (RaceManager.Instance != null)
+        {
+            RaceManager.Instance.OnRaceStart.RemoveListener(HandleRaceStart);
+        }
+    }
+
+    // Waits for the race to actually start (i.e. "GO") rather than playing
+    // the moment the scene loads -- otherwise the engine would be audibly
+    // running while the car's still sitting still on the start line during
+    // the countdown.
+    private void HandleRaceStart()
+    {
         if (audioSource.clip != null)
         {
             audioSource.Play();
@@ -33,5 +53,6 @@ public class EngineAudio : MonoBehaviour
 
         float speed01 = Mathf.Clamp01(carRigidbody.linearVelocity.magnitude / speedForMaxPitch);
         audioSource.pitch = Mathf.Lerp(minPitch, maxPitch, speed01);
+        audioSource.volume = GameSettings.EngineVolume;
     }
 }

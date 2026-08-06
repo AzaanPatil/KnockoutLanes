@@ -5314,6 +5314,7 @@ GameObject:
   - component: {fileID: 324020320}
   - component: {fileID: 324020319}
   - component: {fileID: 324020318}
+  - component: {fileID: 324020322}
   m_Layer: 0
   m_Name: Car
   m_TagString: Player
@@ -5361,6 +5362,9 @@ MonoBehaviour:
   dirtRoadTag: DirtRoad
   dirtRoadGripMultiplier: 0.75
   dirtRoadDragPerWheel: 0.6
+  slipperyTag: Slippery
+  slipperyGripMultiplier: 0.3
+  slipperyDragPerWheel: 0.1
 --- !u!54 &324020313
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5456,7 +5460,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 324020311}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4107a0a2ffa42fd41b985e0c9bb419fd, type: 3}
   m_Name: 
@@ -5472,7 +5476,7 @@ AudioSource:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 324020311}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
@@ -5569,7 +5573,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 324020311}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4cd546a0b15383a4796d739dd09548bb, type: 3}
   m_Name: 
@@ -5583,7 +5587,7 @@ AudioSource:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 324020311}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
@@ -5673,6 +5677,28 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &324020322
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 324020311}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a15691f580f0e449f0c90974263720, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleReset
+  stuckSpeedThreshold: 0.5
+  stuckTimeToReset: 3
+  flippedDotThreshold: 0.3
+  flippedTimeToReset: 1.5
+  carController: {fileID: 324020312}
+  selfRightHoldTime: 0.75
+  selfRightHeightOffset: 0.5
+  OnReset:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &326176576
 GameObject:
   m_ObjectHideFlags: 0

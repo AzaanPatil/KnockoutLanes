@@ -19,19 +19,25 @@ public class DriftAudio : MonoBehaviour
         audioSource.volume = 0f;
     }
 
-    private void Start()
-    {
-        if (audioSource.clip != null)
-        {
-            audioSource.Play();
-        }
-    }
-
     private void Update()
     {
         if (carController == null || audioSource.clip == null) return;
 
-        float targetVolume = carController.IsDrifting ? 1f : 0f;
+        float targetVolume = carController.IsDrifting ? GameSettings.EngineVolume : 0f;
         audioSource.volume = Mathf.MoveTowards(audioSource.volume, targetVolume, fadeSpeed * Time.deltaTime);
+
+        // Actually start/stop the source rather than just fading volume --
+        // leaving it playing silently in the background at all times wastes
+        // an audio voice/channel constantly, which can crowd out other
+        // sounds on lower-end hardware with a limited simultaneous-voice
+        // budget.
+        if (carController.IsDrifting)
+        {
+            if (!audioSource.isPlaying) audioSource.Play();
+        }
+        else if (audioSource.volume <= 0f && audioSource.isPlaying)
+        {
+            audioSource.Stop();
+        }
     }
 }
